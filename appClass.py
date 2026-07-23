@@ -1,3 +1,20 @@
+# TODO: Score Tracking & Data Analysis Roadmap
+# -------------------------------------------------------------------
+# 0. BUGFIX
+#    - [x] Fix double saving caused by something in self.scoreReset
+#
+# 1. POINT / SCORE TRACKING
+#    - [x] Append "A" or "B" to self.scoreHistory in scoreIncrease methods
+#    - [x] Remove points from self.scoreHistory when scoreDecrease is clicked
+#    - [?] Sync self.scoreHistory when scores are manually modified in playerXScoreChange
+#
+# 2. DATA ANALYSIS & STATS
+#    - [ ] Create an "Analyze" cascade dropdown in self.menuBar
+#    - [ ] Implement Match Summary popup (total points, longest scoring streak, winner)
+#    - [ ] Add Win/Loss stats viewer (loading past match JSON files)
+#    - [ ] (Optional) Plot match momentum graph using matplotlib
+# -------------------------------------------------------------------
+
 import customtkinter as ctk
 import pyglet
 import tkinter as tk
@@ -5,17 +22,71 @@ from PIL import Image
 import json
 from datetime import datetime
 from CTkMessagebox import CTkMessagebox
+import os
 
 pyglet.options['win32_gdi_font'] = True
 pyglet.resource.add_font('assets/Nunito.ttf')  
 
 class pingPongApp:
+
+    def saveData(self,event=None):
+            data = {
+                "playerAName": self.playerANameVar.get(),
+                "playerBName": self.playerBNameVar.get(),
+                "playerAScore": self.playerAScore,
+                "playerBScore": self.playerBScore,
+                "currentServer": self.serveCount,
+                "scoreHistory": self.scoreHistory,
+            }
+
+            os.makedirs("saves", exist_ok=True)
+
+            with open(f"saves/{self.fileTime}.json", "w") as file:
+                json.dump(data, file, indent=4)
+
+    def makeFileTime(self,event=None):
+        # 1. Get the current date and time
+        now = datetime.now()
+
+        # 2. Format it into a human-readable string
+        self.fileTime = now.strftime("%Y-%m-%d_%H-%M-%S")
+        # Output: 2026-07-22 13:14:00 (example)
+
     def resetAll(self,event=None):
-        self.scoreReset(event="resetAll")
-        self.nameReset(event="resetAll")
+        if event != "firstStart":
+            postEvent = "resetAll"
+        else:
+            postEvent = "firstStart"
+        msgConfirm = False
+        if event != "firstStart":
+            self.saveData()
+            msg = CTkMessagebox(title="Start New Game",
+                                                message="Are you sure you want to reset the game?",
+                                                icon="question",
+                                                option_1="Yes",
+                                                option_2="Cancel",
+                                                cancel_button="none",
+                                                font=("Nunito", 30),
+                                                bg_color="#595959",
+                                                fg_color="#595959",
+                                                title_color="white",
+                                                )
+            if msg.get() == "Yes":
+                msgConfirm = True
+        else:
+            msgConfirm = True
+
+        if msgConfirm:
+            self.scoreReset(event=postEvent)
+            self.nameReset(event=postEvent)
+            self.makeFileTime()
+            self.saveData()
+        
+
     
     def scoreReset(self,event=None):
-        if event != "resetAll":
+        msgConfirm = False
+        if event not in ("resetAll", "firstStart"):
             msg = CTkMessagebox(title="Start New Match",
                                     message="Are you sure you want to reset the scores?",
                                     icon="question",
@@ -40,59 +111,125 @@ class pingPongApp:
             self.playerAScoreVar.set(str(self.playerAScore))
             self.playerBScoreVar.set(str(self.playerBScore))
             self.serveCount = 3
-            self.serveSwitch()
-
+            self.serveSwitch(skipSave=True)
+            if event not in ("firstStart", "resetAll"):
+                self.makeFileTime()
+            if event != "firstStart":
+                self.saveData()
     def nameReset(self,event=None):
-        self.playerANameVar.set("Player A")
-        self.playerBNameVar.set("Player B")
+        msgConfirm = False
+        if event not in ("resetAll", "firstStart"):
+            msg = CTkMessagebox(title="Reset Names",
+                                                message="Are you sure you want to reset the names?",
+                                                icon="question",
+                                                option_1="Yes",
+                                                option_2="Cancel",
+                                                cancel_button="none",
+                                                font=("Nunito", 30),
+                                                bg_color="#595959",
+                                                fg_color="#595959",
+                                                title_color="white",
+                                            )
+            if msg.get() == "Yes":
+                msgConfirm = True
+        else:
+            msgConfirm = True
 
-        self.playerANameChange()
-        self.playerBNameChange()
+        if msgConfirm:
+            self.playerANameVar.set("Player A")
+            self.playerBNameVar.set("Player B")
+
+            self.playerANameChange(event=event)
+            self.playerBNameChange(event=event)
+            if event != "firstStart":
+                            self.saveData()
 
 
 
     def scoreIncreasePlayerA(self,event=None):
         self.playerAScore += 1
         self.playerAScoreVar.set(str(self.playerAScore))
-        self.serveSwitch()
+        self.serveSwitch(skipSave=True)
+        self.scoreHistory.append("A")
+        self.saveData()
+        
         
     def scoreIncreasePlayerB(self,event=None):
         self.playerBScore += 1
         self.playerBScoreVar.set(str(self.playerBScore))
-        self.serveSwitch()
+        self.serveSwitch(skipSave=True)
+        self.scoreHistory.append("B")
+        self.saveData()
 
     def scoreDecreasePlayerA(self,event=None):
         if self.playerAScore > 0:
             self.playerAScore -= 1
             self.playerAScoreVar.set(str(self.playerAScore))
+            self.serveSwitch(skipSave=True, amount=-1)
+            if "A" in self.scoreHistory:
+                self.scoreHistory.reverse()
+                self.scoreHistory.remove("A")
+                self.scoreHistory.reverse()
+            self.saveData()
         
     def scoreDecreasePlayerB(self,event=None):
         if self.playerBScore > 0:
             self.playerBScore -= 1
             self.playerBScoreVar.set(str(self.playerBScore))
+            self.serveSwitch(skipSave=True, amount=-1)
+            if "B" in self.scoreHistory:
+                self.scoreHistory.reverse()
+                self.scoreHistory.remove("B")
+                self.scoreHistory.reverse()
+            self.saveData()
     
     def playerAScoreChange(self, event=None):
-        dialog = ctk.CTkInputDialog(
-            text="Enter new score for Player A:",
-            title="Change Score",
-            fg_color="#595959",
-            text_color="white",
-            font=("Nunito", 30)
-        )
+        msg = CTkMessagebox(title="Change Score",
+                            message="Are you sure you want to change the score?\nThis will reset the score history.",
+                            icon="question",
+                            option_1="Yes",
+                            option_2="Cancel",
+                            cancel_button="none",
+                            font=("Nunito", 30),
+                            bg_color="#595959",
+                            fg_color="#595959",
+                            title_color="white",
+                            )
+        if msg.get() == "Yes":
+            dialog = ctk.CTkInputDialog(
+                text="Enter new score for Player A:",
+                title="Change Score",
+                fg_color="#595959",
+                text_color="white",
+                font=("Nunito", 30)
+            )
         
-        newScore = dialog.get_input()
-        
-        if newScore:
-            try:
-                formattedScore = int(newScore.strip())
-                
-                if formattedScore >= 0:
-                    self.playerAScore = formattedScore
-                    self.playerAScoreVar.set(str(formattedScore))
-                else:
-                    # 🟡 Warning popup for negative numbers
-                    CTkMessagebox(title="Invalid score",
-                                message="Score cannot be negative!",
+            newScore = dialog.get_input()
+            
+            if newScore:
+                try:
+                    formattedScore = int(newScore.strip())
+                    
+                    if formattedScore >= 0:
+                        self.playerAScore = formattedScore
+                        self.playerAScoreVar.set(str(formattedScore))
+                        self.scoreHistory = []
+                        self.saveData()
+                    else:
+                        # 🟡 Warning popup for negative numbers
+                        CTkMessagebox(title="Invalid score",
+                                    message="Score cannot be negative!",
+                                    icon="warning",
+                                    font=("Nunito", 30),
+                                    bg_color="#595959",
+                                    fg_color="#595959",
+                                    title_color="white",
+                                    )
+
+                except ValueError:
+                    # 🔴 Error popup if they type letters or symbols
+                    CTkMessagebox(title="Invalid input",
+                                message="Please enter a valid whole number!",
                                 icon="warning",
                                 font=("Nunito", 30),
                                 bg_color="#595959",
@@ -100,56 +237,59 @@ class pingPongApp:
                                 title_color="white",
                                 )
 
-            except ValueError:
-                # 🔴 Error popup if they type letters or symbols
-                CTkMessagebox(title="Invalid input",
-                            message="Please enter a valid whole number!",
-                            icon="warning",
+    def playerBScoreChange(self, event=None):
+        msg = CTkMessagebox(title="Change Score",
+                            message="Are you sure you want to change the score?\nThis will reset the score history.",
+                            icon="question",
+                            option_1="Yes",
+                            option_2="Cancel",
+                            cancel_button="none",
                             font=("Nunito", 30),
                             bg_color="#595959",
                             fg_color="#595959",
                             title_color="white",
                             )
-
-    def playerBScoreChange(self, event=None):
-        dialog = ctk.CTkInputDialog(
-            text="Enter new score for Player B:",
-            title="Change Score",
-            fg_color="#595959",
-            text_color="white",
-            font=("Nunito", 30)
-        )
+        if msg.get() == "Yes":
+            dialog = ctk.CTkInputDialog(
+                text="Enter new score for Player B:",
+                title="Change Score",
+                fg_color="#595959",
+                text_color="white",
+                font=("Nunito", 30)
+            )
         
-        newScore = dialog.get_input()
-        
-        if newScore:
-            try:
-                formattedScore = int(newScore.strip())
-                
-                if formattedScore >= 0:
-                    self.playerBScore = formattedScore
-                    self.playerBScoreVar.set(str(formattedScore))
-                else:
-                    # 🟡 Warning popup for negative numbers
-                    CTkMessagebox(title="Invalid score",
-                                                    message="Score cannot be negative!",
-                                                    icon="warning",
-                                                    font=("Nunito", 30),
-                                                    bg_color="#595959",
-                                                    fg_color="#595959",
-                                                    title_color="white",
-                                                    )
+            newScore = dialog.get_input()
+            
+            if newScore:
+                try:
+                    formattedScore = int(newScore.strip())
+                    
+                    if formattedScore >= 0:
+                        self.playerBScore = formattedScore
+                        self.playerBScoreVar.set(str(formattedScore))
+                        self.scoreHistory = []
+                        self.saveData()
+                    else:
+                        # 🟡 Warning popup for negative numbers
+                        CTkMessagebox(title="Invalid score",
+                                                        message="Score cannot be negative!",
+                                                        icon="warning",
+                                                        font=("Nunito", 30),
+                                                        bg_color="#595959",
+                                                        fg_color="#595959",
+                                                        title_color="white",
+                                                        )
 
-            except ValueError:
-                # 🔴 Error popup if they type letters or symbols
-                CTkMessagebox(title="Invalid input",
-                                            message="Please enter a valid whole number!",
-                                            icon="warning",
-                                            font=("Nunito", 30),
-                                            bg_color="#595959",
-                                            fg_color="#595959",
-                                            title_color="white",
-                                            )
+                except ValueError:
+                    # 🔴 Error popup if they type letters or symbols
+                    CTkMessagebox(title="Invalid input",
+                                                message="Please enter a valid whole number!",
+                                                icon="warning",
+                                                font=("Nunito", 30),
+                                                bg_color="#595959",
+                                                fg_color="#595959",
+                                                title_color="white",
+                                                )
 
 
     def playerANameChange(self,event=None):
@@ -173,6 +313,8 @@ class pingPongApp:
             # Make sure they didn't just type empty spaces
             if formattedName:
                 self.playerANameVar.set(formattedName)
+                if event != "firstStart":
+                    self.saveData()
 
     def playerBNameChange(self,event=None):
         # 1. Create and display the popup dialog
@@ -195,14 +337,14 @@ class pingPongApp:
             # Make sure they didn't just type empty spaces
             if formattedName:
                 self.playerBNameVar.set(formattedName)
+                if event != "firstStart":
+                    self.saveData()
 
 
-    def serveSwitch(self,event=None):
-        if self.serveCount < 3:
-            self.serveCount += 1
-        else:
-            self.serveCount = 0
+    def serveSwitch(self,event=None,skipSave:bool=False,amount:int=1):
+        self.serveCount = (self.serveCount + amount) % 4
         #print(self.serveCount)
+
         if self.serveCount < 2:
             self.serveBLabel.configure(image=self.texture_noServe)
             if self.serveCount == 0:
@@ -215,19 +357,8 @@ class pingPongApp:
                 self.serveBLabel.configure(image=self.texture_firstServe)
             else:
                 self.serveBLabel.configure(image=self.texture_secondServe)
-
-    def saveData(self,event=None):
-        data = {
-            "playerAName": self.playerANameVar.get(),
-            "playerBName": self.playerBNameVar.get(),
-            "playerAScore": self.playerAScore,
-            "playerBScore": self.playerBScore,
-            "currentServer": self.serveCount,
-            "scoreHistory": self.scoreHistory,
-        }
-
-        with open(self.fileTime, "w") as file:
-            json.dump(data, file)
+        if not skipSave:
+            self.saveData()
 
 
     def pPass(self,event=None):
@@ -244,13 +375,6 @@ class pingPongApp:
         self.root.geometry("960x540")
         self.root.minsize(300,150)
         self.root.configure(fg_color="#595959")
-
-        # 1. Get the current date and time
-        now = datetime.now()
-
-        # 2. Format it into a human-readable string
-        self.fileTime = now.strftime("%Y-%m-%d_%H:%M:%S")
-        # Output: 2026-07-22 13:14:00 (example)
 
 
         # Setup rows and columns for .grid (y-x)/a*10000 to give greater accuracy
@@ -273,6 +397,10 @@ class pingPongApp:
         self.serveCount = 0 #0 = first serve, player A; 1 = second serve, player A; 2 = first serve, player B; 3 = second serve, player B
 
         self.scoreHistory = []
+
+        self.playerAScore = 0
+
+        self.playerBScore = 0
 
         # 1. Create the master menu bar object
         self.menuBar = tk.Menu(self.root,
@@ -329,8 +457,7 @@ class pingPongApp:
         self.editMenu_renameMenu.add_command(label="Player A", command=self.playerANameChange)
         self.editMenu_renameMenu.add_command(label="Player B", command=self.playerBNameChange)
         self.editMenu_renameMenu.add_separator()
-        self.editMenu_renameMenu.add_command(label="Reset Names", command=self.nameReset)
-
+        self.editMenu_renameMenu.add_command(label="Reset Names", command=self.nameReset)        
         self.menuBar.add_cascade(label="Edit", menu=self.editMenu)
 
         self.editMenu.add_cascade(label="Change Score:", menu=self.editMenu_scoreMenu)
@@ -474,7 +601,6 @@ class pingPongApp:
             text_color="white"
         )
         self.playerBScoreLabel.grid(row=1, column=4, sticky="nsew")
-
 
 
 

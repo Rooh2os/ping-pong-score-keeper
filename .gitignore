@@ -2,6 +2,7 @@ scores.csv
 demo.py
 demoMain.py
 cheatsheet.md
+saves/
 .vscode/
 .venv/
 __pycache__/
