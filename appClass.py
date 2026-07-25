@@ -52,14 +52,12 @@ class pingPongApp:
         self.fileTime = now.strftime("%Y-%m-%d_%H-%M-%S")
         # Output: 2026-07-22 13:14:00 (example)
 
-    def resetAll(self,event=None):
-        if event == "firstStart":
-            postEvent = "firstStart"
-        else:
-            postEvent = "resetAll"
-        msgConfirm = False
-        if postEvent != "firstStart":
+    def resetAll(self,event=None,noMenu:bool=False,noSave:bool=False):
+        if not noSave:
             self.saveData()
+
+        msgConfirm = False
+        if not noMenu:
             msg = CTkMessagebox(title="Start New Game",
                                                 message="Are you sure you want to reset the game?",
                                                 icon="question",
@@ -77,16 +75,17 @@ class pingPongApp:
             msgConfirm = True
 
         if msgConfirm:
-            self.scoreReset(event=postEvent,noSave=True)
-            self.nameReset(event=postEvent,noSave=True)
             self.makeFileTime()
+            self.scoreReset(noSave=True,noMenu=True,makeNewFileTime=False)
+            self.nameReset(noSave=True,noMenu=True)
             self.saveData()
         
 
     
-    def scoreReset(self,event=None,noSave:bool=False):
+    def scoreReset(self,event=None,noSave:bool=False,noMenu:bool=False,makeNewFileTime:bool=True):
         msgConfirm = False
-        if event not in ("resetAll", "firstStart"):
+
+        if not noMenu:
             msg = CTkMessagebox(title="Start New Match",
                                     message="Are you sure you want to reset the scores?",
                                     icon="question",
@@ -112,14 +111,14 @@ class pingPongApp:
             self.playerBScoreVar.set(str(self.playerBScore))
             self.serveCount = 3
             self.serveSwitch(skipSave=True)
-            if event not in ("firstStart", "resetAll"):
+            if makeNewFileTime:
                 self.makeFileTime()
-            if event != "firstStart" and (not noSave):
+            if not noSave:
                 self.saveData()
 
-    def nameReset(self,event=None,noSave:bool=False):
+    def nameReset(self,event=None,noSave:bool=False,noMenu:bool=False):
         msgConfirm = False
-        if event not in ("resetAll", "firstStart"):
+        if not noMenu:
             msg = CTkMessagebox(title="Reset Names",
                                                 message="Are you sure you want to reset the names?",
                                                 icon="question",
@@ -140,9 +139,9 @@ class pingPongApp:
             self.playerANameVar.set("Player A")
             self.playerBNameVar.set("Player B")
 
-            self.playerANameChange(event=event)
-            self.playerBNameChange(event=event)
-            if event not in ("firstStart", "resetAll") and (not noSave):
+            self.playerANameChange(noSave=True)
+            self.playerBNameChange(noSave=True)
+            if not noSave:
                 self.saveData()
 
 
@@ -293,7 +292,7 @@ class pingPongApp:
                                                 )
 
 
-    def playerANameChange(self,event=None):
+    def playerANameChange(self,event=None,noSave:bool=False):
         # 1. Create and display the popup dialog
         dialog = ctk.CTkInputDialog(text="Enter new name for Player A:",
                                     title="Change Name",
@@ -314,10 +313,10 @@ class pingPongApp:
             # Make sure they didn't just type empty spaces
             if formattedName:
                 self.playerANameVar.set(formattedName)
-                if event != "firstStart":
+                if not noSave:
                     self.saveData()
 
-    def playerBNameChange(self,event=None):
+    def playerBNameChange(self,event=None,noSave:bool=False):
         # 1. Create and display the popup dialog
         dialog = ctk.CTkInputDialog(text="Enter new name for Player B:",
                                     title="Change Name",
@@ -338,11 +337,11 @@ class pingPongApp:
             # Make sure they didn't just type empty spaces
             if formattedName:
                 self.playerBNameVar.set(formattedName)
-                if event != "firstStart":
+                if not noSave:
                     self.saveData()
 
 
-    def serveSwitch(self,event=None,skipSave:bool=False,amount:int=1):
+    def serveSwitch(self,event=tk.Event,skipSave:bool=False,amount:int=1):
         self.serveCount = (self.serveCount + amount) % 4
         #print(self.serveCount)
 
