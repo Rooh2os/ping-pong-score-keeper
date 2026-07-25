@@ -53,12 +53,12 @@ class pingPongApp:
         # Output: 2026-07-22 13:14:00 (example)
 
     def resetAll(self,event=None):
-        if event != "firstStart":
-            postEvent = "resetAll"
-        else:
+        if event == "firstStart":
             postEvent = "firstStart"
+        else:
+            postEvent = "resetAll"
         msgConfirm = False
-        if event != "firstStart":
+        if postEvent != "firstStart":
             self.saveData()
             msg = CTkMessagebox(title="Start New Game",
                                                 message="Are you sure you want to reset the game?",
@@ -77,14 +77,14 @@ class pingPongApp:
             msgConfirm = True
 
         if msgConfirm:
-            self.scoreReset(event=postEvent)
-            self.nameReset(event=postEvent)
+            self.scoreReset(event=postEvent,noSave=True)
+            self.nameReset(event=postEvent,noSave=True)
             self.makeFileTime()
             self.saveData()
         
 
     
-    def scoreReset(self,event=None):
+    def scoreReset(self,event=None,noSave:bool=False):
         msgConfirm = False
         if event not in ("resetAll", "firstStart"):
             msg = CTkMessagebox(title="Start New Match",
@@ -114,9 +114,10 @@ class pingPongApp:
             self.serveSwitch(skipSave=True)
             if event not in ("firstStart", "resetAll"):
                 self.makeFileTime()
-            if event != "firstStart":
+            if event != "firstStart" and (not noSave):
                 self.saveData()
-    def nameReset(self,event=None):
+
+    def nameReset(self,event=None,noSave:bool=False):
         msgConfirm = False
         if event not in ("resetAll", "firstStart"):
             msg = CTkMessagebox(title="Reset Names",
@@ -141,8 +142,8 @@ class pingPongApp:
 
             self.playerANameChange(event=event)
             self.playerBNameChange(event=event)
-            if event != "firstStart":
-                            self.saveData()
+            if event not in ("firstStart", "resetAll") and (not noSave):
+                self.saveData()
 
 
 
