@@ -27,7 +27,7 @@ import os
 pyglet.options['win32_gdi_font'] = True
 pyglet.resource.add_font('assets/Nunito.ttf')  
 
-class pingPongApp:
+class pingPongApp(ctk.CTk):
 
     def saveData(self,event=None):
             data = {
@@ -41,15 +41,33 @@ class pingPongApp:
 
             os.makedirs("saves", exist_ok=True)
 
-            with open(f"saves/{self.fileTime}.json", "w") as file:
+            with open(self.fileName, "w") as file:
                 json.dump(data, file, indent=4)
 
-    def makeFileTime(self,event=None):
+    def loadData(self,file:str,event=None):
+        with open(file) as f:
+            data = json.load(f)
+
+        self.fileName = file
+        self.playerANameVar.set(data["playerAName"])
+        self.playerBNameVar.set(data["playerBName"])
+        self.playerAScore = data["playerAScore"]
+        self.playerAScoreVar.set(str(self.playerAScore))
+        self.playerBScore = data["playerBScore"]
+        self.playerBScoreVar.set(str(self.playerBScore))
+        self.serveCount = data["currentServer"]
+        self.serveSwitch(skipSave=True, amount=0)
+        self.scoreHistory = data["scoreHistory"]
+
+    def openFilePicker(self,event=None):
+        savePicker(parent=self.root, onSelect=self.loadData)
+
+    def makeFileName(self,event=None):
         # 1. Get the current date and time
         now = datetime.now()
 
         # 2. Format it into a human-readable string
-        self.fileTime = now.strftime("%Y-%m-%d_%H-%M-%S")
+        self.fileName = f"saves/{now.strftime('%Y-%m-%d_%H-%M-%S')}.json"
         # Output: 2026-07-22 13:14:00 (example)
 
     def resetAll(self,event=None,noMenu:bool=False,noSave:bool=False):
@@ -75,14 +93,14 @@ class pingPongApp:
             msgConfirm = True
 
         if msgConfirm:
-            self.makeFileTime()
-            self.scoreReset(noSave=True,noMenu=True,makeNewFileTime=False)
+            self.makeFileName()
+            self.scoreReset(noSave=True,noMenu=True,makeNewFileName=False)
             self.nameReset(noSave=True,noMenu=True)
             self.saveData()
         
 
     
-    def scoreReset(self,event=None,noSave:bool=False,noMenu:bool=False,makeNewFileTime:bool=True):
+    def scoreReset(self,event=None,noSave:bool=False,noMenu:bool=False,makeNewFileName:bool=True):
         msgConfirm = False
 
         if not noMenu:
@@ -111,8 +129,8 @@ class pingPongApp:
             self.playerBScoreVar.set(str(self.playerBScore))
             self.serveCount = 3
             self.serveSwitch(skipSave=True)
-            if makeNewFileTime:
-                self.makeFileTime()
+            if makeNewFileName:
+                self.makeFileName()
             if not noSave:
                 self.saveData()
 
@@ -424,6 +442,9 @@ class pingPongApp:
         self.fileMenu.add_command(label="New Game", command=self.resetAll, accelerator="Ctrl+N")
         self.fileMenu.add_command(label="New Match", command=self.scoreReset, accelerator="Ctrl+M")
         self.fileMenu.add_separator() # Adds a nice divider line
+        self.fileMenu.add_command(label="Save Same", command=self.saveData, accelerator="Ctrl+S")
+        self.fileMenu.add_command(label="Load Saved Game", command=self.openFilePicker)
+        self.fileMenu.add_separator()
         self.fileMenu.add_command(label="Exit", command=self.root.quit)
 
         # 4. Cascade (attach) the "File" dropdown to the master menu bar
@@ -601,6 +622,21 @@ class pingPongApp:
             text_color="white"
         )
         self.playerBScoreLabel.grid(row=1, column=4, sticky="nsew")
+
+class savePicker(ctk.CTkToplevel):
+    def __init__(self,parent,onSelect):
+        super().__init__(parent)
+
+        self.title("Save Selector")
+        self.geometry("500x300")
+
+        self.topLabel = ctk.CTkLabel(
+            self,
+            text="Select save file"
+        )
+        self.topLabel.pack(pady=20)
+
+        
 
 
 
